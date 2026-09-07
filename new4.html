@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JEE Smart Voice Planner & Submission Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-16 font-sans">
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 py-4 px-6 sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+          ⚡ JEE Prep Smart Timetable & Submission Tracker
+        </h1>
+        <p class="text-xs text-slate-400">Voice-powered scheduling, homework memos, and test deadlines.</p>
+      </div>
+      <button onclick="generateSchedule()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-5 py-2.5 rounded-lg shadow-lg shadow-cyan-500/20 transition text-sm">
+        ✨ Auto-Generate Timetable
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- Left Column: Input Modes, Settings & Task Queue -->
+    <div class="space-y-6 lg:col-span-1">
+      
+      <!-- VOICE / QUICK INPUT -->
+      <div class="bg-gradient-to-br from-slate-800 to-slate-850 p-5 rounded-2xl border-2 border-cyan-500/50 shadow-xl">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold text-base text-cyan-300 flex items-center gap-2">
+            🎙️ Voice & Quick Dictate
+          </h2>
+          <span id="micStatusBadge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-700 text-slate-300">
+            Ready
+          </span>
+        </div>
+        
+        <p class="text-xs text-slate-400 mb-3">
+          Speak tasks or notes. Say <span class="text-amber-300 font-mono">"Note: ..."</span> to store a memo, or just state your study hours:<br>
+          <span class="text-cyan-200 italic font-mono text-[10.5px]">"Note: Submit Chemistry DPP 3 before Thursday"</span>
+        </p>
+
+        <!-- Big Mic Button -->
+        <button id="micBtn" onclick="toggleVoiceRecording()" class="w-full bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-3 transition shadow-lg mb-3">
+          <svg id="micIconSvg" class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          </svg>
+          <span id="micBtnText" class="text-sm tracking-wide">TAP HERE TO SPEAK</span>
+        </button>
+
+        <!-- Quick Text Box -->
+        <div class="flex gap-2">
+          <input id="quickTextInput" placeholder="Type target or 'Note: submit assignment before Friday'..." 
+            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:border-cyan-400 focus:outline-none" 
+            onkeydown="if(event.key==='Enter'){event.preventDefault(); processTextInput();}" />
+          <button onclick="processTextInput()" class="bg-cyan-700 hover:bg-cyan-600 px-3 py-2 rounded-lg text-xs font-semibold">
+            Parse
+          </button>
+        </div>
+
+        <div id="transcriptBox" class="mt-2.5 p-2 bg-slate-900/90 rounded border border-slate-700 text-xs text-slate-400 min-h-[34px] flex items-center italic">
+          Spoken words will appear here...
+        </div>
+      </div>
+
+      <!-- MANUAL TOPIC ENTRY -->
+      <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-sm">
+        <h2 class="font-bold text-base mb-3 text-slate-200 flex items-center gap-2">
+          📝 Manual Topic Entry
+        </h2>
+        <form id="taskForm" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Subject</label>
+            <select id="subject" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs focus:border-cyan-400 focus:outline-none">
+              <option value="Physics">Physics</option>
+              <option value="Chemistry">Chemistry</option>
+              <option value="Mathematics">Mathematics</option>
+              <option value="Mock/Revision">Mock Test / Revision</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Chapter / Target Name</label>
+            <input id="chapter" required placeholder="e.g., Alkyl Halides PyQs, Rotational Motion" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs focus:border-cyan-400 focus:outline-none" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Study Hours</label>
+              <input id="duration" type="number" min="0.5" step="0.5" value="3" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs focus:border-cyan-400 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Priority</label>
+              <select id="priority" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs focus:border-cyan-400 focus:outline-none">
+                <option value="3">High (Test / Urgent)</option>
+                <option value="2" selected>Medium</option>
+                <option value="1">Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Must Finish Before</label>
+            <select id="deadline" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs focus:border-cyan-400 focus:outline-none">
+              <option value="6">Sunday</option>
+              <option value="0">Monday</option>
+              <option value="1">Tuesday</option>
+              <option value="2">Wednesday</option>
+              <option value="3">Thursday</option>
+              <option value="4">Friday</option>
+              <option value="5">Saturday</option>
+            </select>
+          </div>
+
+          <button type="submit" class="w-full mt-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 font-semibold py-2.5 rounded-lg text-xs transition text-slate-100">
+            + Add Target to Queue
+          </button>
+        </form>
+      </div>
+
+      <!-- DAILY STUDY CAPACITY -->
+      <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-sm">
+        <h2 class="font-bold text-sm mb-2 text-slate-200">⏱️ Daily Study Budget (Hours)</h2>
+        <div class="grid grid-cols-2 gap-2 text-sm" id="dailySlotsContainer"></div>
+      </div>
+
+      <!-- TASK QUEUE -->
+      <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-sm">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="font-bold text-sm text-slate-200">Weekly Tasks Queue (<span id="taskCount">0</span>)</h2>
+          <button onclick="clearTasks()" class="text-xs text-rose-400 hover:underline">Clear All</button>
+        </div>
+        <div id="taskList" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+      </div>
+    </div>
+
+    <!-- Right Column: Generated Timetable & Submissions / Notes Board -->
+    <div class="lg:col-span-2 space-y-6">
+      
+      <!-- SUBMISSIONS & REMINDERS BOARD -->
+      <div class="bg-slate-800 p-6 rounded-2xl border border-amber-500/40 shadow-sm">
+        <div class="flex flex-wrap justify-between items-center mb-4 pb-3 border-b border-slate-700 gap-2">
+          <div>
+            <h2 class="font-bold text-lg text-amber-300 flex items-center gap-2">
+              📌 Homework, Submissions & Due Notes
+            </h2>
+            <p class="text-xs text-slate-400">Keep track of teacher assignments, DPP submissions, and exam dates.</p>
+          </div>
+          <button onclick="clearNotes()" class="text-xs text-rose-400 hover:underline">Clear Notes</button>
+        </div>
+
+        <!-- Add note quick form -->
+        <form id="noteForm" class="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-4">
+          <input id="noteText" placeholder="e.g. Submit Physics module Ex-1 by Wednesday" required 
+            class="sm:col-span-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:border-amber-400 focus:outline-none" />
+          <select id="noteDay" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-2 text-xs focus:border-amber-400 focus:outline-none">
+            <option value="No Date">General Note</option>
+            <option value="Monday">Due Monday</option>
+            <option value="Tuesday">Due Tuesday</option>
+            <option value="Wednesday">Due Wednesday</option>
+            <option value="Thursday">Due Thursday</option>
+            <option value="Friday">Due Friday</option>
+            <option value="Saturday">Due Saturday</option>
+            <option value="Sunday">Due Sunday</option>
+          </select>
+          <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs transition">
+            + Save Memo
+          </button>
+        </form>
+
+        <!-- Notes List Grid -->
+        <div id="notesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-1"></div>
+      </div>
+
+      <!-- WEEKLY SCHEDULE DISPLAY -->
+      <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-sm">
+        <div class="flex flex-wrap justify-between items-center mb-6 pb-4 border-b border-slate-700 gap-2">
+          <div>
+            <h2 class="font-bold text-xl text-white">Generated Timetable</h2>
+            <p class="text-xs text-slate-400">Sequenced by test dates, priority weights & submission deadlines</p>
+          </div>
+          <button onclick="window.print()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-slate-300">
+            Print / Save PDF
+          </button>
+        </div>
+
+        <div id="scheduleGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+        <div id="overflowAlert" class="hidden mt-4 p-4 rounded-lg bg-rose-950/60 border border-rose-800 text-rose-200 text-xs">
+          <strong>⚠️ Study Hours Exceeded:</strong>
+          <span id="overflowText"></span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    let dailyHours = JSON.parse(localStorage.getItem('jee_dailyHours')) || [4, 4, 4, 4, 4, 8, 8];
+    let tasks = JSON.parse(localStorage.getItem('jee_tasks')) || [];
+    let notes = JSON.parse(localStorage.getItem('jee_notes')) || [];
+
+    const SYLLABUS_DICTIONARY = {
+      Physics: [
+        'kinematics', 'mechanics', 'rotation', 'rotational', 'nlm', 'laws of motion', 'work power energy',
+        'gravitation', 'fluids', 'thermodynamics', 'ktg', 'shm', 'waves', 'sound waves', 'electrostatics',
+        'capacitance', 'current electricity', 'magnetism', 'emi', 'electromagnetic induction', 'ac',
+        'optics', 'wave optics', 'ray optics', 'modern physics', 'semiconductors', 'physics'
+      ],
+      Chemistry: [
+        'organic', 'inorganic', 'physical chemistry', 'mole concept', 'atomic structure', 'chemical bonding',
+        'states of matter', 'thermodynamics', 'equilibrium', 'redox', 'solutions', 'electrochemistry',
+        'chemical kinetics', 'coordination compounds', 'haloalkanes', 'alkyl halides', 'aryl halides',
+        'alcohol', 'phenol', 'ether', 'aldehydes', 'ketones', 'carboxylic acids', 'amines', 'chemistry'
+      ],
+      Mathematics: [
+        'maths', 'math', 'mathematics', 'calculus', 'definite integration', 'indefinite integration',
+        'integration', 'differentiation', 'limits', 'continuity', 'matrices', 'determinants', 'probability',
+        'permutations', 'combinations', 'pnc', 'binomial theorem', 'quadratic equations', 'complex numbers',
+        'vectors', '3d geometry', 'coordinate geometry', 'trigonometry'
+      ],
+      "Mock/Revision": ['mock test', 'test series', 'sample paper', 'revision', 'pyqs']
+    };
+
+    // --- Notes Management ---
+    const noteForm = document.getElementById('noteForm');
+    noteForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = document.getElementById('noteText').value.trim();
+      const dueDay = document.getElementById('noteDay').value;
+      if (!text) return;
+
+      notes.push({
+        id: Date.now(),
+        text,
+        dueDay,
+        completed: false
+      });
+
+      document.getElementById('noteText').value = '';
+      saveAndRenderNotes();
+      generateSchedule(); // re-render schedule cards to link notes
+    });
+
+    function saveAndRenderNotes() {
+      localStorage.setItem('jee_notes', JSON.stringify(notes));
+      const container = document.getElementById('notesContainer');
+
+      if (notes.length === 0) {
+        container.innerHTML = `<p class="col-span-2 text-xs text-slate-500 italic py-2">No pending notes or assignments saved.</p>`;
+        return;
+      }
+
+      container.innerHTML = notes.map(n => `
+        <div class="bg-slate-900/90 p-2.5 rounded-lg border ${n.completed ? 'border-slate-800 opacity-60' : 'border-amber-500/40'} flex items-start justify-between gap-2 text-xs">
+          <div class="flex items-start gap-2">
+            <input type="checkbox" ${n.completed ? 'checked' : ''} onchange="toggleNote(${n.id})" class="mt-0.5 rounded text-amber-500 focus:ring-0 cursor-pointer" />
+            <div>
+              <p class="text-slate-200 font-medium ${n.completed ? 'line-through text-slate-500' : ''}">${n.text}</p>
+              <span class="text-[10px] ${n.dueDay === 'No Date' ? 'text-slate-500' : 'text-amber-400 font-semibold'}">
+                📅 ${n.dueDay === 'No Date' ? 'General Memo' : 'Due: ' + n.dueDay}
+              </span>
+            </div>
+          </div>
+          <button onclick="deleteNote(${n.id})" class="text-slate-500 hover:text-rose-400 font-bold text-xs p-0.5">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function toggleNote(id) {
+      notes = notes.map(n => n.id === id ? { ...n, completed: !n.completed } : n);
+      saveAndRenderNotes();
+      generateSchedule();
+    }
+
+    function deleteNote(id) {
+      notes = notes.filter(n => n.id !== id);
+      saveAndRenderNotes();
+      generateSchedule();
+    }
+
+    function clearNotes() {
+      if (confirm("Clear all notes and homework items?")) {
+        notes = [];
+        saveAndRenderNotes();
+        generateSchedule();
+      }
+    }
+
+    // --- NLP Voice & Multi-Task Parser ---
+    function parseMultipleSpokenInputs(input) {
+      if (!input || !input.trim()) return;
+
+      const lower = input.toLowerCase();
+
+      // Check if user is dictating a Note / Assignment Reminder
+      if (/^(?:note|remember|submission|assignment|homework|memo)\b/.test(lower) || /due (?:on|by|before)/.test(lower)) {
+        let cleanNote = input.replace(/^(?:note|remember|assignment|homework|memo):?/i, '').trim();
+        let foundDay = "No Date";
+        DAYS.forEach(day => {
+          if (new RegExp(`(?:before|by|on|until)?\\s*${day.toLowerCase()}\\b`).test(lower)) {
+            foundDay = day;
+          }
+        });
+
+        notes.push({
+          id: Date.now(),
+          text: cleanNote.charAt(0).toUpperCase() + cleanNote.slice(1),
+          dueDay: foundDay,
+          completed: false
+        });
+        saveAndRenderNotes();
+        generateSchedule();
+        return;
+      }
+
+      // Otherwise parse as study targets
+      const clauses = input.split(/\b(?:and then|and also|and|then|also|\.|\;)\b|,/gi)
+                           .map(s => s.trim())
+                           .filter(s => s.length > 2);
+
+      let parsedTasks = [];
+      clauses.forEach(clause => {
+        let task = parseSingleClause(clause);
+        if (task) parsedTasks.push(task);
+      });
+
+      if (parsedTasks.length > 0) {
+        tasks.push(...parsedTasks);
+        saveAndRenderTasks();
+        generateSchedule();
+      }
+    }
+
+    function parseSingleClause(text) {
+      let lower = text.toLowerCase();
+
+      // Duration
+      let duration = 3.0;
+      let hourMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h\b)/);
+      let minMatch = lower.match(/(\d+)\s*(?:minutes?|mins?)/);
+      let bareNumMatch = lower.match(/\bfor\s*(\d+(?:\.\d+)?)\b/);
+
+      if (hourMatch) duration = parseFloat(hourMatch[1]);
+      else if (minMatch) duration = Math.round((parseInt(minMatch[1]) / 60) * 10) / 10;
+      else if (bareNumMatch) duration = parseFloat(bareNumMatch[1]);
+
+      // Priority
+      let priority = 2;
+      if (/urgent|high priority|important|test|exam|chapter test|crucial|must do|asap/.test(lower)) {
+        priority = 3;
+      } else if (/low priority|whenever|optional|easy/.test(lower)) {
+        priority = 1;
+      }
+
+      // Deadline
+      let deadline = 6;
+      let dayFound = false;
+      DAYS.forEach((day, index) => {
+        if (new RegExp(`(?:before|by|on|until|for)?\\s*${day.toLowerCase()}\\b`).test(lower)) {
+          deadline = index;
+          dayFound = true;
+        }
+      });
+
+      if (!dayFound) {
+        let now = new Date();
+        let todayDayOfWeek = now.getDay();
+        let currentDayIdx = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1;
+
+        if (/tomorrow/.test(lower)) {
+          deadline = Math.min(6, currentDayIdx + 1);
+          dayFound = true;
+        } else {
+          let inDaysMatch = lower.match(/in\s*(\d+)\s*days?/);
+          if (inDaysMatch) {
+            deadline = Math.min(6, currentDayIdx + parseInt(inDaysMatch[1]));
+            dayFound = true;
+          }
+        }
+      }
+
+      // Subject Detection
+      let subject = null;
+      let matchedTopic = null;
+      if (/\b(?:physics|phys)\b/.test(lower)) subject = "Physics";
+      else if (/\b(?:chemistry|chem)\b/.test(lower)) subject = "Chemistry";
+      else if (/\b(?:math|maths|mathematics)\b/.test(lower)) subject = "Mathematics";
+      else if (/\b(?:mock|revision|test series)\b/.test(lower)) subject = "Mock/Revision";
+
+      if (!subject) {
+        for (const [sub, keywords] of Object.entries(SYLLABUS_DICTIONARY)) {
+          for (const kw of keywords) {
+            if (lower.includes(kw)) {
+              subject = sub;
+              matchedTopic = kw;
+              break;
+            }
+          }
+          if (subject) break;
+        }
+      }
+      if (!subject) subject = "Physics";
+
+      // Chapter Name
+      let cleanChapter = text
+        .replace(/\b(?:physics|chemistry|mathematics|maths|mock|revision)\b/gi, '')
+        .replace(/\b(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|minutes?|mins?|h)\b/gi, '')
+        .replace(/\b(?:high|medium|low)\s*priority\b/gi, '')
+        .replace(/\b(?:urgent|important|chapter test|test|exam|must do|asap)\b/gi, '')
+        .replace(/\b(?:before|by|on|until)\s*(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow)\b/gi, '')
+        .replace(/\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow)\b/gi, '')
+        .replace(/\b(?:i want to do|i have to do|i need to complete|please add|schedule|target|cover|study|do|finish)\b/gi, '')
+        .replace(/^[,\s\-:]+|[,\s\-:]+$/g, '')
+        .trim();
+
+      if (!cleanChapter || cleanChapter.length < 2) {
+        cleanChapter = matchedTopic ? (matchedTopic.charAt(0).toUpperCase() + matchedTopic.slice(1)) : `${subject} Practice`;
+      } else {
+        cleanChapter = cleanChapter.charAt(0).toUpperCase() + cleanChapter.slice(1);
+      }
+
+      return {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        subject,
+        chapter: cleanChapter,
+        duration,
+        priority,
+        deadline
+      };
+    }
+
+    function processTextInput() {
+      const input = document.getElementById('quickTextInput');
+      if (!input.value.trim()) return;
+      parseMultipleSpokenInputs(input.value);
+      input.value = '';
+    }
+
+    // --- Web Speech API Recognition ---
+    let recognition = null;
+    let isRecording = false;
+
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-IN';
+
+      recognition.onstart = () => {
+        isRecording = true;
+        document.getElementById('micBtn').className = "w-full bg-rose-600 hover:bg-rose-500 animate-pulse text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-3 transition shadow-lg mb-3";
+        document.getElementById('micBtnText').innerText = "LISTENING... SPEAK NOW";
+        document.getElementById('micStatusBadge').innerText = "Recording";
+        document.getElementById('micStatusBadge').className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-900 text-rose-200";
+      };
+
+      recognition.onresult = (event) => {
+        let transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+        document.getElementById('transcriptBox').innerText = `"${transcript}"`;
+
+        if (event.results[0].isFinal) {
+          parseMultipleSpokenInputs(transcript);
+        }
+      };
+
+      recognition.onerror = (e) => {
+        console.error(e);
+        document.getElementById('transcriptBox').innerText = "Could not capture voice. Try typing in the box.";
+        resetMicUI();
+      };
+
+      recognition.onend = resetMicUI;
+    } else {
+      document.getElementById('micBtnText').innerText = "Voice not supported in this browser";
+      document.getElementById('micBtn').disabled = true;
+    }
+
+    function toggleVoiceRecording() {
+      if (!recognition) return;
+      if (isRecording) recognition.stop();
+      else recognition.start();
+    }
+
+    function resetMicUI() {
+      isRecording = false;
+      document.getElementById('micBtn').className = "w-full bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-3 transition shadow-lg mb-3";
+      document.getElementById('micBtnText').innerText = "TAP HERE TO SPEAK";
+      document.getElementById('micStatusBadge').innerText = "Ready";
+      document.getElementById('micStatusBadge').className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-700 text-slate-300";
+    }
+
+    // --- Daily Slots & Manual Task Queue ---
+    function renderDailySlots() {
+      const container = document.getElementById('dailySlotsContainer');
+      container.innerHTML = DAYS.map((day, idx) => `
+        <div class="flex items-center justify-between bg-slate-900/60 px-3 py-1.5 rounded border border-slate-700/60">
+          <span class="text-xs font-medium text-slate-300">${day.slice(0,3)}</span>
+          <div class="flex items-center gap-1">
+            <input type="number" min="0" max="16" step="0.5" value="${dailyHours[idx]}" 
+              onchange="updateDailyHour(${idx}, this.value)" 
+              class="w-12 bg-slate-800 text-center border border-slate-700 rounded text-xs py-0.5 focus:outline-none focus:border-cyan-400" />
+            <span class="text-[10px] text-slate-500">h</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateDailyHour(index, val) {
+      dailyHours[index] = parseFloat(val) || 0;
+      localStorage.setItem('jee_dailyHours', JSON.stringify(dailyHours));
+    }
+
+    document.getElementById('taskForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      tasks.push({
+        id: Date.now(),
+        subject: document.getElementById('subject').value,
+        chapter: document.getElementById('chapter').value,
+        duration: parseFloat(document.getElementById('duration').value),
+        priority: parseInt(document.getElementById('priority').value),
+        deadline: parseInt(document.getElementById('deadline').value)
+      });
+      document.getElementById('chapter').value = '';
+      saveAndRenderTasks();
+      generateSchedule();
+    });
+
+    function saveAndRenderTasks() {
+      localStorage.setItem('jee_tasks', JSON.stringify(tasks));
+      const taskList = document.getElementById('taskList');
+      document.getElementById('taskCount').innerText = tasks.length;
+
+      if (tasks.length === 0) {
+        taskList.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">No tasks queued yet.</p>`;
+        return;
+      }
+
+      taskList.innerHTML = tasks.map(task => {
+        const pBadge = task.priority === 3 
+          ? '<span class="px-1.5 py-0.2 text-[9px] bg-rose-900/80 text-rose-300 border border-rose-700 rounded">High / Test</span>'
+          : task.priority === 2 
+            ? '<span class="px-1.5 py-0.2 text-[9px] bg-amber-900/80 text-amber-300 border border-amber-700 rounded">Med</span>'
+            : '<span class="px-1.5 py-0.2 text-[9px] bg-slate-700 text-slate-300 rounded">Low</span>';
+
+        return `
+          <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-700/80 flex items-center justify-between text-xs">
+            <div>
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <span class="font-bold ${getSubjectColor(task.subject)}">${task.subject}</span>
+                ${pBadge}
+              </div>
+              <p class="text-slate-300 text-xs">${task.chapter}</p>
+              <p class="text-[10px] text-slate-500 mt-0.5">
+                ${task.duration} hrs • Must do before <span class="text-slate-400 font-semibold">${DAYS[task.deadline]}</span>
+              </p>
+            </div>
+            <button onclick="deleteTask(${task.id})" class="text-slate-500 hover:text-rose-400 p-1 font-bold text-sm">✕</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function deleteTask(id) {
+      tasks = tasks.filter(t => t.id !== id);
+      saveAndRenderTasks();
+      generateSchedule();
+    }
+
+    function clearTasks() {
+      tasks = [];
+      saveAndRenderTasks();
+      generateSchedule();
+    }
+
+    function getSubjectColor(subj) {
+      switch(subj) {
+        case 'Physics': return 'text-sky-400';
+        case 'Chemistry': return 'text-emerald-400';
+        case 'Mathematics': return 'text-amber-400';
+        default: return 'text-purple-400';
+      }
+    }
+
+    function getSubjectBg(subj) {
+      switch(subj) {
+        case 'Physics': return 'border-sky-500/30 bg-sky-950/20';
+        case 'Chemistry': return 'border-emerald-500/30 bg-emerald-950/20';
+        case 'Mathematics': return 'border-amber-500/30 bg-amber-950/20';
+        default: return 'border-purple-500/30 bg-purple-950/20';
+      }
+    }
+
+    // --- Schedule Generator (Integrates Tasks & Submissions) ---
+    function generateSchedule() {
+      let schedule = DAYS.map((day, idx) => ({
+        day,
+        totalCapacity: dailyHours[idx],
+        remaining: dailyHours[idx],
+        slots: []
+      }));
+
+      let sortedTasks = [...tasks].sort((a, b) => {
+        if (a.deadline !== b.deadline) return a.deadline - b.deadline;
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return b.duration - a.duration;
+      });
+
+      let unassigned = [];
+
+      sortedTasks.forEach(task => {
+        let needed = task.duration;
+        for (let dayIdx = 0; dayIdx <= task.deadline; dayIdx++) {
+          if (needed <= 0) break;
+          let dayObj = schedule[dayIdx];
+          if (dayObj.remaining > 0) {
+            let allocated = Math.min(needed, dayObj.remaining);
+            dayObj.slots.push({
+              subject: task.subject,
+              chapter: task.chapter,
+              duration: allocated,
+              priority: task.priority
+            });
+            dayObj.remaining -= allocated;
+            needed -= allocated;
+          }
+        }
+        if (needed > 0) unassigned.push({ ...task, remainingHours: needed });
+      });
+
+      renderSchedule(schedule, unassigned);
+    }
+
+    function renderSchedule(schedule, unassigned) {
+      const grid = document.getElementById('scheduleGrid');
+      grid.innerHTML = schedule.map((item) => {
+        const usedHours = (item.totalCapacity - item.remaining).toFixed(1);
+        const percent = item.totalCapacity > 0 ? Math.min(100, Math.round((usedHours / item.totalCapacity) * 100)) : 0;
+
+        // Find active notes due on this specific day
+        const dueToday = notes.filter(n => n.dueDay === item.day && !n.completed);
+
+        return `
+          <div class="bg-slate-900 rounded-xl p-4 border border-slate-700/80 flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-800">
+                <span class="font-bold text-slate-200">${item.day}</span>
+                <span class="text-xs ${item.remaining === 0 ? 'text-amber-400' : 'text-slate-400'}">
+                  ${usedHours} / ${item.totalCapacity} hrs
+                </span>
+              </div>
+
+              <!-- Day's Submissions/Reminders (Pinned to Top) -->
+              ${dueToday.length > 0 ? `
+                <div class="mb-3 space-y-1">
+                  ${dueToday.map(d => `
+                    <div class="bg-amber-500/10 border border-amber-500/40 text-amber-200 px-2 py-1 rounded text-[11px] flex items-center gap-1.5">
+                      <span>📌</span>
+                      <span class="font-medium truncate">${d.text}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+
+              <!-- Hour Allocation Bar -->
+              <div class="w-full bg-slate-800 rounded-full h-1.5 mb-3 overflow-hidden">
+                <div class="bg-cyan-500 h-1.5 rounded-full" style="width: ${percent}%"></div>
+              </div>
+
+              <!-- Study Slots -->
+              <div class="space-y-2">
+                ${item.slots.length === 0 
+                  ? `<p class="text-[11px] text-slate-600 italic py-2">No study sessions allocated.</p>` 
+                  : item.slots.map(s => `
+                    <div class="p-2.5 rounded border text-xs ${getSubjectBg(s.subject)}">
+                      <div class="flex justify-between items-start">
+                        <span class="font-bold ${getSubjectColor(s.subject)}">${s.subject}</span>
+                        <span class="font-mono text-[10px] bg-slate-900/60 px-1.5 py-0.5 rounded text-slate-300">
+                          ${s.duration}h
+                        </span>
+                      </div>
+                      <p class="text-slate-200 mt-1 font-medium">${s.chapter}</p>
+                      ${s.priority === 3 ? `<p class="text-[10px] text-rose-400 mt-0.5">⚡ Priority Target</p>` : ''}
+                    </div>
+                  `).join('')}
+              </div>
+            </div>
+            ${item.remaining > 0 ? `
+              <div class="mt-3 text-[11px] text-slate-500">
+                💤 ${item.remaining.toFixed(1)} hrs free buffer
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+
+      const alertBox = document.getElementById('overflowAlert');
+      const alertText = document.getElementById('overflowText');
+      if (unassigned.length > 0) {
+        alertBox.classList.remove('hidden');
+        alertText.innerHTML = `
+          Could not fit all target hours before deadline:
+          <ul class="list-disc ml-5 mt-1">
+            ${unassigned.map(u => `<li><strong>${u.chapter}</strong> (${u.remainingHours} hrs left before ${DAYS[u.deadline]})</li>`).join('')}
+          </ul>
+        `;
+      } else {
+        alertBox.classList.add('hidden');
+      }
+    }
+
+    // Initial Load
+    renderDailySlots();
+    saveAndRenderTasks();
+    saveAndRenderNotes();
+    generateSchedule();
+  </script>
+</body>
+</html>
